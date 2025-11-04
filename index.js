@@ -12,7 +12,7 @@
 // This means that NUMBER type already excludes these values
 // Previously we had FINITENUMBER and NONANNUMBER 
 // These types are gone now :-)
-var ErrorToMessage, booleanOrNothingStringify, booleanOrNullStringify, booleanStringify, c, createArrayStringifier, createArrayValidator, createObjectStringifier, createObjectValidator, createStaticStringValidator, createThrower, dirtyCharMap, dirtyChars, domainCharMap, domainChars, getStringifierEntriesForObject, getTypeStringifier, getTypeStringifiersForArray, getTypeValidator, getTypeValidatorsForArray, getValidatorEntriesForObject, hexChars, hexMap, invalidEmailSmallRegex, isDirtyObject, j, l, len, len1, len2, locked, m, numberOrNothingStringify, numberOrNullStringify, numberStringify, numericOnlyRegex, objectOrNothingStringify, objectStringify, staticValidatorOrThrow, stringOrNothingStringify, stringOrNullStringify, stringStringify, typeArraySize, typeStringifierFunctions, typeValidatorFunctions;
+var ErrorToMessage, createArrayValidator, createObjectValidator, createStaticStringValidator, createThrower, dirtyCharMap, dirtyChars, domainCharMap, domainChars, getTypeValidator, getTypeValidatorsForArray, getValidatorEntriesForObject, hexChars, hexMap, i, invalidEmailSmallRegex, isDirtyObject, locked, numericOnlyRegex, staticValidatorOrThrow, typeArraySize, typeValidatorFunctions;
 
 export var BOOLEAN = 1;
 
@@ -124,11 +124,13 @@ invalidEmailSmallRegex = /(\.\.|--|-\.)|\.-/;
 //###########################################################
 hexChars = "0123456789abcdefABCDEF";
 
-hexMap = Object.create(null);
+hexMap = new Array(103);
 
-for (j = 0, len = hexChars.length; j < len; j++) {
-  c = hexChars[j];
-  hexMap[c] = true;
+i = 0;
+
+while (i < hexChars.length) {
+  hexMap[hexChars.charCodeAt(i)] = true;
+  i++;
 }
 
 // Object.freeze(hexMap) # creates minor performance penalty
@@ -136,23 +138,32 @@ for (j = 0, len = hexChars.length; j < len; j++) {
 //###########################################################
 domainChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-.";
 
-domainCharMap = Object.create(null);
+domainCharMap = new Array(123);
 
-for (l = 0, len1 = domainChars.length; l < len1; l++) {
-  c = domainChars[l];
-  domainCharMap[c] = true;
+i = 0;
+
+while (i < domainChars.length) {
+  domainCharMap[domainChars.charCodeAt(i)] = true;
+  i++;
 }
 
 // Object.freeze(domainCharMap) # creates minor performance penalty
 
 //###########################################################
-dirtyChars = "\x00\x01\x02\x03\x04\x05\x06\x07\x08" + "\x0B\x0C" + "\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F" + "\x7F" + "\u00A0" + "\u1680" + "\u180E" + "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A" + "\u200B\u200C\u200D\u200E\u200F" + "\u2028\u2029" + "\u202A\u202B\u202C\u202D\u202E" + "\u2060\u2061\u2062\u2063\u2064\u2066\u2067\u2068\u2069" + "\u3000" + "\uFEFF"; // ASCII control 0–8 // vertical tab, form feed // rest of controls // DEL // non-breaking space // ogham space mark // mongolian vowel separator // en/em/etc. spaces // zero-width spaces, joiners, directional // line/paragraph separators // embedding/override control // invisible controls // ideographic space
+// \t = \x09 Horizontal Tab -> not dirty :-) 
+// \n = \x0A Line Feed -> not dirty :-)
+// PAD = \x80 Padding Character -> not dirty :-)
+// NEL = \x85 Next Line -> not dirty :-)
+dirtyChars = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0D\x0E\x0F" + "\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F" + "\x7F" + "\x81\x82\x83\x84\x86\x87\x88\x89\x8A\x8B\x8C\x8D\x8E\x8F" + "\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9A\x9B\x9C\x9D\x9E\x9F"; // C0 controls //C1 controls
 
-dirtyCharMap = Object.create(null);
+// all chars > \u02ff will be cut off manually 
+dirtyCharMap = new Array(160);
 
-for (m = 0, len2 = dirtyChars.length; m < len2; m++) {
-  c = dirtyChars[m];
-  dirtyCharMap[c] = true;
+i = 0;
+
+while (i < dirtyChars.length) {
+  dirtyCharMap[dirtyChars.charCodeAt(i)] = true;
+  i++;
 }
 
 // Object.freeze(dirtyCharMap) # creates minor performance penalty
@@ -164,14 +175,14 @@ for (m = 0, len2 = dirtyChars.length; m < len2; m++) {
 
 //###########################################################
 isDirtyObject = function(obj) {
-  var k, keys, len3, n;
+  var j, k, keys, len;
   if (obj === null) {
     return;
   }
   //# as the inputs come from an object which was originalled paref from a JSON string we assume to not fall into an infinite loop
   keys = Object.keys(obj);
-  for (n = 0, len3 = keys.length; n < len3; n++) {
-    k = keys[n];
+  for (j = 0, len = keys.length; j < len; j++) {
+    k = keys[j];
     if (k === "__proto__" || k === "constructor" || k === "prototype") {
       return true;
     }
@@ -212,9 +223,9 @@ getTypeValidator = function(type) {
 
 //###########################################################
 getTypeValidatorsForArray = function(arr) {
-  var el, funcs, i, len3, n;
+  var el, funcs, j, len;
   funcs = new Array(arr.length);
-  for (i = n = 0, len3 = arr.length; n < len3; i = ++n) {
+  for (i = j = 0, len = arr.length; j < len; i = ++j) {
     el = arr[i];
     switch (false) {
       case typeof el !== "number":
@@ -236,10 +247,10 @@ getTypeValidatorsForArray = function(arr) {
 };
 
 getValidatorEntriesForObject = function(obj) {
-  var entries, i, k, keys, len3, n, prop;
+  var entries, j, k, keys, len, prop;
   keys = Object.keys(obj);
   entries = [];
-  for (i = n = 0, len3 = keys.length; n < len3; i = ++n) {
+  for (i = j = 0, len = keys.length; j < len; i = ++j) {
     k = keys[i];
     prop = obj[k];
     if (typeof prop === "number") {
@@ -271,15 +282,15 @@ createArrayValidator = function(arr) {
   funcs = getTypeValidatorsForArray(arr);
   // olog valEntries
   func = function(arg) {
-    var el, err, f, hits, i, len3, n;
+    var el, err, f, hits, j, len;
     if (!Array.isArray(arg)) {
       return ISINVALID;
     }
     hits = 0;
-    for (i = n = 0, len3 = funcs.length; n < len3; i = ++n) {
+    for (i = j = 0, len = funcs.length; j < len; i = ++j) {
       f = funcs[i];
       el = arg[i];
-      if (el !== void 0) {
+      if (!(el === void 0)) {
         hits++;
       }
       err = f(el);
@@ -306,7 +317,7 @@ createObjectValidator = function(obj) {
     throw new Error("{} is illegal!");
   }
   func = function(arg) {
-    var e, err, hits, keys, len3, n, prop;
+    var e, err, hits, j, keys, len, prop;
     // log "validating Object!"
     // olog arg
     // log "valEntries.length: #{valEntries.length}"
@@ -317,11 +328,11 @@ createObjectValidator = function(obj) {
       return ISINVALID;
     }
     hits = 0;
-    for (n = 0, len3 = valEntries.length; n < len3; n++) {
-      e = valEntries[n];
+    for (j = 0, len = valEntries.length; j < len; j++) {
+      e = valEntries[j];
       // olog e
       prop = arg[e[0]];
-      if (prop !== void 0) {
+      if (!(prop === void 0)) {
         hits++;
       }
       err = e[1](prop);
@@ -341,246 +352,6 @@ createObjectValidator = function(obj) {
 
 //endregion
 
-//###########################################################
-//region Stringifier Creation Helpers
-getTypeStringifier = function(type) {
-  var fun;
-  fun = typeStringifierFunctions[type];
-  if (fun == null) {
-    throw new Error(`Unrecognized Schematype! (${type})`);
-  }
-  return fun;
-};
-
-//###########################################################
-getTypeStringifiersForArray = function(arr) {
-  var el, i, len3, n, ts, type;
-  ts = new Array(arr.length); //# type stringifiers
-  for (i = n = 0, len3 = arr.length; n < len3; i = ++n) {
-    el = arr[i];
-    type = typeof el;
-    if (type === "number") {
-      ts[i] = getTypeStringifier(el);
-    }
-    if (type === "string") {
-      ts[i] = getTypeStringifier(STRING);
-    }
-    if (type !== "object") {
-      continue;
-    }
-    if (Array.isArray(el)) {
-      ts[i] = createArrayStringifier(el);
-    } else {
-      ts[i] = createObjectStringifier(el);
-    }
-  }
-  return ts;
-};
-
-getStringifierEntriesForObject = function(obj) {
-  var i, k, keys, len3, n, prop, ses, type;
-  keys = Object.keys(obj);
-  ses = new Array(keys.length); // stringifier entries 
-  for (i = n = 0, len3 = keys.length; n < len3; i = ++n) {
-    k = keys[i];
-    prop = obj[k];
-    type = typeof prop;
-    if (type === "number") {
-      ses[i] = [k, getTypeStringifier(prop)];
-    }
-    if (type === "string") {
-      ses[i] = [k, getTypeStringifier(STRING)];
-    }
-    if (type !== "object") {
-      continue;
-    }
-    if (Array.isArray(prop)) {
-      sfes[i] = [k, createArrayStringifier(prop)];
-    } else {
-      ses[i] = [k, createObjectStringifier(prop)];
-    }
-  }
-  return ses;
-};
-
-//###########################################################
-createArrayStringifier = function(arr) {
-  var bufLen, buffer, func, stringifyFunctions;
-  stringifyFunctions = getTypeStringifiersForArray(arr);
-  bufLen = stringifyFunctions.length;
-  buffer = new Array(bufLen);
-  func = function(arg) {
-    var f, i, len3, len4, n, o, s, str;
-    for (i = n = 0, len3 = stringifyFunctions.length; n < len3; i = ++n) {
-      f = stringifyFunctions[i];
-      //# stringify contents with predefined functions
-      buffer[i] = f(arg[i]);
-    }
-    //# cut off undefined tail
-    while (buffer[buffer.length - 1] === void 0 && buffer.length !== 0) {
-      buffer.pop();
-    }
-    //# fast return on no content
-    if (buffer.length === 0) {
-      buffer.length = bufLen; // restore original size
-      return '[]';
-    }
-
-    // undefined within the array turns to 'null'
-    for (i = o = 0, len4 = buffer.length; o < len4; i = ++o) {
-      s = buffer[i];
-      if (s === void 0) {
-        buffer[i] = 'null';
-      }
-    }
-    str = '[' + buffer[0];
-    i = 1;
-    while (i < buffer.length) {
-      str += ',' + buffer[i++];
-    }
-    buffer.length = bufLen; // restore original size
-    str += ']';
-    return str;
-  };
-  return func;
-};
-
-createObjectStringifier = function(obj) {
-  var bufLen, buffer, func, sfEntries;
-  sfEntries = getStringifierEntriesForObject(obj); // stringifer entries
-  bufLen = sfEntries.length;
-  buffer = new Array(bufLen);
-  func = function(arg) {
-    var el, i, len3, n, str;
-    for (i = n = 0, len3 = sfEntries.length; n < len3; i = ++n) {
-      el = sfEntries[i];
-      buffer[i] = el[1](arg[el[0]]);
-    }
-    
-    // log "0"
-    str = '{';
-    i = 0;
-    while (str.length === 1 && i < bufLen) {
-      if (buffer[i] != null) {
-        str += '"' + sfEntries[i][0] + '":' + buffer[i];
-      }
-      i++;
-    }
-    
-      // log "1"
-    while (i < bufLen) {
-      if (buffer[i] != null) {
-        str += ',"' + sfEntries[i][0] + '":' + buffer[i];
-      }
-      i++;
-    }
-    // log "2"
-    str += '}';
-    return str;
-  };
-  return func;
-};
-
-//endregion
-
-//###########################################################
-//region Raw Type Stringifier Functions
-booleanStringify = function(arg) {
-  if (arg) {
-    return 'true';
-  } else {
-    return 'false';
-  }
-};
-
-booleanOrNothingStringify = function(arg) {
-  if (arg === void 0) {
-    return arg;
-  }
-  if (arg) {
-    return 'true';
-  } else {
-    return 'false';
-  }
-};
-
-booleanOrNullStringify = function(arg) {
-  if (arg === null) {
-    return 'null';
-  }
-  if (arg) {
-    return 'true';
-  } else {
-    return 'false';
-  }
-};
-
-numberStringify = function(arg) {
-  return '' + arg;
-};
-
-numberOrNothingStringify = function(arg) {
-  if (arg === void 0) {
-    return arg;
-  } else {
-    return '' + arg;
-  }
-};
-
-numberOrNullStringify = function(arg) {
-  if (arg === null) {
-    return 'null';
-  } else {
-    return '' + arg;
-  }
-};
-
-stringStringify = function(arg) {
-  var code, i;
-  if (arg.length > 67) {
-    return JSON.stringify(arg);
-  }
-  i = 0;
-  while (i < arg.length) {
-    code = arg.charCodeAt(i);
-    if (code < 93 && (code < 0x20 || code === 0x5c || code === 0x22)) {
-      return JSON.stringify(arg);
-    }
-    i++;
-  }
-  return '"' + arg + '"';
-};
-
-stringOrNothingStringify = function(arg) {
-  if (arg === void 0) {
-    return arg;
-  } else {
-    return stringStringify(arg);
-  }
-};
-
-stringOrNullStringify = function(arg) {
-  if (arg === null) {
-    return 'null';
-  } else {
-    return stringStringify(arg);
-  }
-};
-
-objectStringify = JSON.stringify;
-
-objectOrNothingStringify = function(arg) {
-  if (arg === void 0) {
-    return arg;
-  } else {
-    return JSON.stringify(arg);
-  }
-};
-
-//TODO? maybe create specific Array Stringify function?
-
-//endregion
-
 //endregion
 
 //###########################################################
@@ -596,7 +367,7 @@ typeValidatorFunctions[STRING] = function(arg) {
 };
 
 typeValidatorFunctions[STRINGEMAIL] = function(arg) {
-  var atPos, dotPos, i, lastPos, len3, n, tld;
+  var atPos, c, dotPos, j, lastPos, len, tld;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
@@ -620,9 +391,9 @@ typeValidatorFunctions[STRINGEMAIL] = function(arg) {
 // if arg[0] == "." or arg[atPos - 1] == "." then return INVALIDEMAIL
 // if arg[0] == "-" or arg[atPos - 1] == "-" then return INVALIDEMAIL
 // if arg[atPos + 1] == "." or arg[atPos + 1] == "-" then return INVALIDEMAIL
-  for (i = n = 0, len3 = arg.length; n < len3; i = ++n) {
+  for (i = j = 0, len = arg.length; j < len; i = ++j) {
     c = arg[i];
-    if (!(domainCharMap[c] || i === atPos || (i < atPos && (c === "+" || c === "_")))) {
+    if (!(domainCharMap[arg.charCodeAt(i)] || i === atPos || (i < atPos && (c === "+" || c === "_")))) {
       return INVALIDEMAIL;
     }
   }
@@ -648,95 +419,95 @@ typeValidatorFunctions[STRINGEMAIL] = function(arg) {
 };
 
 typeValidatorFunctions[STRINGHEX] = function(arg) {
-  var len3, n;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX32] = function(arg) {
-  var len3, n;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
   if (arg.length !== 32) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX64] = function(arg) {
-  var len3, n;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
   if (arg.length !== 64) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX128] = function(arg) {
-  var len3, n;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
   if (arg.length !== 128) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX256] = function(arg) {
-  var len3, n;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
   if (arg.length !== 256) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX512] = function(arg) {
-  var len3, n;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
   if (arg.length !== 512) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
@@ -780,7 +551,7 @@ typeValidatorFunctions[STRINGORNOTHING] = function(arg) {
 };
 
 typeValidatorFunctions[STRINGEMAILORNOTHING] = function(arg) {
-  var atPos, dotPos, i, lastPos, len3, n, tld;
+  var atPos, c, dotPos, j, lastPos, len, tld;
   if (arg === void 0) {
     return;
   }
@@ -807,9 +578,9 @@ typeValidatorFunctions[STRINGEMAILORNOTHING] = function(arg) {
 // if arg[0] == "." or arg[atPos - 1] == "." then return INVALIDEMAIL
 // if arg[0] == "-" or arg[atPos - 1] == "-" then return INVALIDEMAIL
 // if arg[atPos + 1] == "." or arg[atPos + 1] == "-" then return INVALIDEMAIL
-  for (i = n = 0, len3 = arg.length; n < len3; i = ++n) {
+  for (i = j = 0, len = arg.length; j < len; i = ++j) {
     c = arg[i];
-    if (!(domainCharMap[c] || i === atPos || (i < atPos && (c === "+" || c === "_")))) {
+    if (!(domainCharMap[arg.charCodeAt(i)] || i === atPos || (i < atPos && (c === "+" || c === "_")))) {
       return INVALIDEMAIL;
     }
   }
@@ -835,23 +606,22 @@ typeValidatorFunctions[STRINGEMAILORNOTHING] = function(arg) {
 };
 
 typeValidatorFunctions[STRINGHEXORNOTHING] = function(arg) {
-  var len3, n;
   if (arg === void 0) {
     return;
   }
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX32ORNOTHING] = function(arg) {
-  var len3, n;
   if (arg === void 0) {
     return;
   }
@@ -861,16 +631,16 @@ typeValidatorFunctions[STRINGHEX32ORNOTHING] = function(arg) {
   if (arg.length !== 32) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX64ORNOTHING] = function(arg) {
-  var len3, n;
   if (arg === void 0) {
     return;
   }
@@ -880,16 +650,16 @@ typeValidatorFunctions[STRINGHEX64ORNOTHING] = function(arg) {
   if (arg.length !== 64) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX128ORNOTHING] = function(arg) {
-  var len3, n;
   if (arg === void 0) {
     return;
   }
@@ -899,16 +669,16 @@ typeValidatorFunctions[STRINGHEX128ORNOTHING] = function(arg) {
   if (arg.length !== 128) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX256ORNOTHING] = function(arg) {
-  var len3, n;
   if (arg === void 0) {
     return;
   }
@@ -918,16 +688,16 @@ typeValidatorFunctions[STRINGHEX256ORNOTHING] = function(arg) {
   if (arg.length !== 256) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX512ORNOTHING] = function(arg) {
-  var len3, n;
   if (arg === void 0) {
     return;
   }
@@ -937,11 +707,12 @@ typeValidatorFunctions[STRINGHEX512ORNOTHING] = function(arg) {
   if (arg.length !== 512) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
@@ -997,7 +768,7 @@ typeValidatorFunctions[STRINGORNULL] = function(arg) {
 };
 
 typeValidatorFunctions[STRINGEMAILORNULL] = function(arg) {
-  var atPos, dotPos, i, lastPos, len3, n, tld;
+  var atPos, c, dotPos, j, lastPos, len, tld;
   if (arg === null) {
     return;
   }
@@ -1024,9 +795,9 @@ typeValidatorFunctions[STRINGEMAILORNULL] = function(arg) {
 // if arg[0] == "." or arg[atPos - 1] == "." then return INVALIDEMAIL
 // if arg[0] == "-" or arg[atPos - 1] == "-" then return INVALIDEMAIL
 // if arg[atPos + 1] == "." or arg[atPos + 1] == "-" then return INVALIDEMAIL
-  for (i = n = 0, len3 = arg.length; n < len3; i = ++n) {
+  for (i = j = 0, len = arg.length; j < len; i = ++j) {
     c = arg[i];
-    if (!(domainCharMap[c] || i === atPos || (i < atPos && (c === "+" || c === "_")))) {
+    if (!(domainCharMap[arg.charCodeAt(i)] || i === atPos || (i < atPos && (c === "+" || c === "_")))) {
       return INVALIDEMAIL;
     }
   }
@@ -1052,23 +823,22 @@ typeValidatorFunctions[STRINGEMAILORNULL] = function(arg) {
 };
 
 typeValidatorFunctions[STRINGHEXORNULL] = function(arg) {
-  var len3, n;
   if (arg === null) {
     return;
   }
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX32ORNULL] = function(arg) {
-  var len3, n;
   if (arg === null) {
     return;
   }
@@ -1078,16 +848,16 @@ typeValidatorFunctions[STRINGHEX32ORNULL] = function(arg) {
   if (arg.length !== 32) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX64ORNULL] = function(arg) {
-  var len3, n;
   if (arg === null) {
     return;
   }
@@ -1097,16 +867,16 @@ typeValidatorFunctions[STRINGHEX64ORNULL] = function(arg) {
   if (arg.length !== 64) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX128ORNULL] = function(arg) {
-  var len3, n;
   if (arg === null) {
     return;
   }
@@ -1116,16 +886,16 @@ typeValidatorFunctions[STRINGHEX128ORNULL] = function(arg) {
   if (arg.length !== 128) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX256ORNULL] = function(arg) {
-  var len3, n;
   if (arg === null) {
     return;
   }
@@ -1135,16 +905,16 @@ typeValidatorFunctions[STRINGHEX256ORNULL] = function(arg) {
   if (arg.length !== 256) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGHEX512ORNULL] = function(arg) {
-  var len3, n;
   if (arg === null) {
     return;
   }
@@ -1154,11 +924,12 @@ typeValidatorFunctions[STRINGHEX512ORNULL] = function(arg) {
   if (arg.length !== 512) {
     return INVALIDSIZE;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
@@ -1223,79 +994,87 @@ typeValidatorFunctions[NONEMPTYARRAY] = function(arg) {
 };
 
 typeValidatorFunctions[NONEMPTYSTRINGHEX] = function(arg) {
-  var len3, n;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
   if (arg.length === 0) {
     return ISEMPTYSTRING;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (!hexMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    if (hexMap[arg.charCodeAt(i)] === void 0) {
       return INVALIDHEX;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[NONEMPTYSTRINGCLEAN] = function(arg) {
-  var len3, n;
+  var code;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
   if (arg.length === 0) {
     return ISEMPTYSTRING;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (dirtyCharMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    code = arg.charCodeAt(i);
+    if (code > 0x2ff || dirtyCharMap[code]) {
       return ISDIRTYSTRING;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGCLEAN] = function(arg) {
-  var len3, n;
+  var code;
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (dirtyCharMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    code = arg.charCodeAt(i);
+    if (code > 0x2ff || dirtyCharMap[code]) {
       return ISDIRTYSTRING;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGCLEANORNULL] = function(arg) {
-  var len3, n;
+  var code;
   if (arg === null) {
     return;
   }
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (dirtyCharMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    code = arg.charCodeAt(i);
+    if (code > 0x2ff || dirtyCharMap[code]) {
       return ISDIRTYSTRING;
     }
+    i++;
   }
 };
 
 typeValidatorFunctions[STRINGCLEANORNOTHING] = function(arg) {
-  var len3, n;
+  var code;
   if (arg === void 0) {
     return;
   }
   if (typeof arg !== "string") {
     return NOTASTRING;
   }
-  for (n = 0, len3 = arg.length; n < len3; n++) {
-    c = arg[n];
-    if (dirtyCharMap[c]) {
+  i = 0;
+  while (i < arg.length) {
+    code = arg.charCodeAt(i);
+    if (code > 0x2ff || dirtyCharMap[code]) {
       return ISDIRTYSTRING;
     }
+    i++;
   }
 };
 
@@ -1331,108 +1110,6 @@ typeValidatorFunctions[OBJECTCLEANORNOTHING] = function(arg) {
     return ISDIRTYOBJECT;
   }
 };
-
-//endregion
-
-//endregion
-
-//###########################################################
-//region Stringifier Functions
-typeStringifierFunctions = new Array(typeArraySize);
-
-//###########################################################
-//region Stringify Functions for Schema Types
-typeStringifierFunctions[STRING] = stringStringify;
-
-typeStringifierFunctions[STRINGEMAIL] = stringStringify;
-
-typeStringifierFunctions[STRINGHEX] = stringStringify;
-
-typeStringifierFunctions[STRINGHEX32] = stringStringify;
-
-typeStringifierFunctions[STRINGHEX64] = stringStringify;
-
-typeStringifierFunctions[STRINGHEX128] = stringStringify;
-
-typeStringifierFunctions[STRINGHEX256] = stringStringify;
-
-typeStringifierFunctions[STRINGHEX512] = stringStringify;
-
-typeStringifierFunctions[NUMBER] = numberStringify;
-
-typeStringifierFunctions[BOOLEAN] = booleanStringify;
-
-typeStringifierFunctions[ARRAY] = objectStringify;
-
-typeStringifierFunctions[OBJECT] = objectStringify;
-
-typeStringifierFunctions[STRINGORNOTHING] = stringOrNothingStringify;
-
-typeStringifierFunctions[STRINGEMAILORNOTHING] = stringOrNothingStringify;
-
-typeStringifierFunctions[STRINGHEXORNOTHING] = stringOrNothingStringify;
-
-typeStringifierFunctions[STRINGHEX32ORNOTHING] = stringOrNothingStringify;
-
-typeStringifierFunctions[STRINGHEX64ORNOTHING] = stringOrNothingStringify;
-
-typeStringifierFunctions[STRINGHEX128ORNOTHING] = stringOrNothingStringify;
-
-typeStringifierFunctions[STRINGHEX256ORNOTHING] = stringOrNothingStringify;
-
-typeStringifierFunctions[STRINGHEX512ORNOTHING] = stringOrNothingStringify;
-
-typeStringifierFunctions[NUMBERORNOTHING] = numberOrNothingStringify;
-
-typeStringifierFunctions[BOOLEANORNOTHING] = booleanOrNothingStringify;
-
-typeStringifierFunctions[ARRAYORNOTHING] = objectOrNothingStringify;
-
-typeStringifierFunctions[OBJECTORNOTHING] = objectOrNothingStringify;
-
-typeStringifierFunctions[STRINGORNULL] = stringOrNullStringify;
-
-typeStringifierFunctions[STRINGEMAILORNULL] = stringOrNullStringify;
-
-typeStringifierFunctions[STRINGHEXORNULL] = stringOrNullStringify;
-
-typeStringifierFunctions[STRINGHEX32ORNULL] = stringOrNullStringify;
-
-typeStringifierFunctions[STRINGHEX64ORNULL] = stringOrNullStringify;
-
-typeStringifierFunctions[STRINGHEX128ORNULL] = stringOrNullStringify;
-
-typeStringifierFunctions[STRINGHEX256ORNULL] = stringOrNullStringify;
-
-typeStringifierFunctions[STRINGHEX512ORNULL] = stringOrNullStringify;
-
-typeStringifierFunctions[NUMBERORNULL] = numberOrNullStringify;
-
-typeStringifierFunctions[BOOLEANORNULL] = booleanOrNullStringify;
-
-typeStringifierFunctions[ARRAYORNULL] = objectStringify;
-
-typeStringifierFunctions[NONNULLOBJECT] = objectStringify;
-
-typeStringifierFunctions[NONEMPTYSTRING] = stringStringify;
-
-typeStringifierFunctions[NONEMPTYARRAY] = objectStringify;
-
-typeStringifierFunctions[NONEMPTYSTRINGHEX] = stringStringify;
-
-typeStringifierFunctions[NONEMPTYSTRINGCLEAN] = stringStringify;
-
-typeStringifierFunctions[STRINGCLEAN] = stringStringify;
-
-typeStringifierFunctions[STRINGCLEANORNULL] = stringOrNullStringify;
-
-typeStringifierFunctions[STRINGCLEANORNOTHING] = stringOrNothingStringify;
-
-typeStringifierFunctions[OBJECTCLEAN] = objectStringify;
-
-typeStringifierFunctions[NONNULLOBJECTCLEAN] = objectStringify;
-
-typeStringifierFunctions[OBJECTCLEANORNOTHING] = objectStringify;
 
 //endregion
 
@@ -1514,6 +1191,13 @@ ErrorToMessage[ISINVALID] = "Is invalid!";
 
 //###########################################################
 //region API = exports
+
+//###########################################################
+//# takes obj to be validated, schema and optional boolean staticStrings
+//#    a truthy staticStrings allows you to put static 
+//#    strings into your schema like: 
+//#    {userInpput: STRING, publicAccess: "onlywithexactlythisstring"}
+//# returns undefined if the obj is valid or the errorCode on invalid obj
 export var validate = function(obj, schema, staticStrings) {
   var type;
   if (staticStrings === true) {
@@ -1582,10 +1266,10 @@ export var getErrorMessage = function(errorCode) {
 };
 
 //###########################################################
-//# takes a validatorFunction and getTypeStringifier
+//# takes a validatorFunction
 //#    this function cannot overwrite predefined types 
 //# returns the new enumeration number for the defined Type
-export var defineNewType = function(validatorFunc, stringifyFunc) {
+export var defineNewType = function(validatorFunc) {
   var newTypeId;
   if (locked) {
     throw new Error("We are closed!");
@@ -1595,7 +1279,6 @@ export var defineNewType = function(validatorFunc, stringifyFunc) {
     throw new Error("Exeeding type limit!");
   }
   typeValidatorFunctions[newTypeId] = validatorFunc;
-  typeStringifierFunctions[newTypeId] = stringifyFunc;
   return newTypeId;
 };
 
@@ -1620,10 +1303,10 @@ export var defineNewError = function(errorMessage) {
 };
 
 //###########################################################
-//# takes a type, validatorFunc and stringifyFunc
-//#     sets the specified functions as validator and stringifier 
-//#     for the given type
-export var setTypeFunctions = function(type, valiatorFunc, stringifyFunc) {
+//# takes a type and validatorFunc
+//#     sets the specified functions as validator for the 
+//#     given type
+export var setTypeValidator = function(type, valiatorFunc) {
   if (locked) {
     throw new Error("We are closed!");
   }
@@ -1636,20 +1319,10 @@ export var setTypeFunctions = function(type, valiatorFunc, stringifyFunc) {
   if ((valiatorFunc != null) && typeof valiatorFunc !== "function") {
     throw new Error("validatorFunc is not a Function!");
   }
-  if ((stringifyFunc != null) && typeof stringifyFunc !== "function") {
-    throw new Error("stringifyFunc is not a Function!");
-  }
   if (typeof validatorFunction !== "undefined" && validatorFunction !== null) {
     typeValidatorFunctions[type] = validatorFunc;
   } else {
     typeValidatorFunctions[type] = function() {};
-  }
-  if (stringifyFunc != null) {
-    typeStringifierFunctions[type] = stringifyFunc;
-  } else {
-    typeStringifierFunctions[type] = function() {
-      return "";
-    };
   }
 };
 
